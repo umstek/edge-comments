@@ -1,7 +1,10 @@
 [package]
 authors = ["Wickramaranga Abeygunawardhana <w@umstek.tk>"]
+description = "Comments on the edge"
 edition = "2018"
+license = "MIT"
 name = "edge-comments"
+repository = "https://github.com/umstek/edge-comments.git"
 version = "0.1.0"
 
 [lib]
