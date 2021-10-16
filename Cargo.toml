@@ -3,6 +3,7 @@ name = "workers-kv-from-rust"
 version = "0.1.0"
 authors = ["Wickramaranga Abeygunawardhana <w@umstek.tk>"]
 edition = "2018"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
