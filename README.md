@@ -2,11 +2,11 @@
 
 This is a convention based thin wrapper around cloudflare workers kv (key-value) infrastructure written in Rust.
 
-Store any data at path: `POST /path/to/data` with `Content-Type: text/plain` body.
-Get data at path: `GET /path/to/data` as `text/plain` response.
-List all keys by prefix: `GET /path/to/` (note the trailing slash) as newline (`"\n"`) delimited `text/plain` response. This contains all keys that start with `/path/to/`.
+Store any data at path: `POST /path/to/data` with `Content-Type: text/plain` body.  
+Get data at path: `GET /path/to/data` as `text/plain` response.  
+List all keys by prefix: `GET /path/to/` (note the trailing slash) as newline (`"\n"`) delimited `text/plain` response. This contains all keys that start with `/path/to/`.  
 
-For example, if you have 3 blogs you can store comments like:
+For example, if you have 3 blogs you can store comments like:  
 `/blog3/my-post-slug/comment-id/reply-id/second-level-reply`
 
 I haven't added authentication yet. This should be an origin block and preferably some form of user authentication.
