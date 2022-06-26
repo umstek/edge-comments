@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: mv wrangler.example.toml wrangler.toml
       - uses: datamonsters/replace-action@v2
         with:
