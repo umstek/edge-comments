@@ -4,6 +4,9 @@ version = "0.2.0"
 authors = ["Wickramaranga Abeygunawardhana <w@umstek.tk>"]
 edition = "2024"
 license = "MIT"
+description = "Convention-based comments engine on Cloudflare Workers KV, written in Rust"
+repository = "https://github.com/umstek/edge-comments"
+readme = "README.md"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
