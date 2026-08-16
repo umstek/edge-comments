@@ -1,6 +1,6 @@
 [package]
 name = "edge-comments"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Wickramaranga Abeygunawardhana <w@umstek.tk>"]
 edition = "2024"
 license = "MIT"
