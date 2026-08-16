@@ -7,13 +7,15 @@ fn log_request(req: &Request) {
         "{} - [{}], located at: {:?}, within: {}",
         Date::now().to_string(),
         req.path(),
-        req.cf().coordinates().unwrap_or_default(),
-        req.cf().region().unwrap_or("unknown region".into())
+        req.cf().and_then(|cf| cf.coordinates()).unwrap_or_default(),
+        req.cf()
+            .and_then(|cf| cf.region())
+            .unwrap_or_else(|| "unknown region".into())
     );
 }
 
 #[event(fetch)]
-pub async fn main(mut req: Request, env: Env) -> Result<Response> {
+pub async fn main(mut req: Request, env: Env, _ctx: Context) -> Result<Response> {
     log_request(&req);
     utils::set_panic_hook();
 
@@ -29,13 +31,13 @@ pub async fn main(mut req: Request, env: Env) -> Result<Response> {
                     .await?
                     .keys
                     .into_iter()
-                    .map(|k| format!("{}", k.name))
+                    .map(|k| k.name)
                     .collect::<Vec<_>>()
                     .join("\n");
                 Response::ok(list_of_keys)
             } else {
-                if let Some(value) = kv.get(&req.path()).await? {
-                    Response::ok(value.as_string())
+                if let Some(value) = kv.get(&req.path()).text().await? {
+                    Response::ok(value)
                 } else {
                     Response::error("Not found", 404)
                 }
