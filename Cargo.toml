@@ -1,5 +1,5 @@
 [package]
-name = "workers-kv-from-rust"
+name = "edge-comments"
 version = "0.1.0"
 authors = ["Wickramaranga Abeygunawardhana <w@umstek.tk>"]
 edition = "2024"

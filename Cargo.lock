@@ -100,6 +100,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-comments"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "console_error_panic_hook",
+ "serde_json",
+ "worker",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -779,16 +789,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "workers-kv-from-rust"
-version = "0.1.0"
-dependencies = [
- "cfg-if",
- "console_error_panic_hook",
- "serde_json",
- "worker",
 ]
 
 [[package]]
