@@ -4,14 +4,28 @@ compatibility_date = "2026-07-01"
 workers_dev = true
 
 [build]
-command = "cargo install -q worker-build && worker-build --release" # required
+command = "cargo install -q worker-build --version 0.8.7 --locked && worker-build --release" # required
 
 [observability]
 enabled = true
 
-[[kv_namespaces]]
-binding = "COMMON"
-id = "00000000000000000000000000000000"
+[vars]
+# Comma-separated origins allowed to call the API from a browser.
+# ALLOWED_ORIGINS = "https://blog.umstek.com,https://app.umstek.com"
+# Optional comma-separated allowlist of site names (the first path segment).
+# ALLOWED_SITES = "blog,app"
+# Set to "true" only for local development without TURNSTILE_SECRET.
+# ALLOW_INSECURE_WRITES = "false"
 
-# read more about configuring your Worker via wrangler.toml at:
+[[d1_databases]]
+binding = "DB"
+database_name = "edge-comments"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+# Set secrets separately (never commit them):
+#   npx wrangler secret put TURNSTILE_SECRET
+#   npx wrangler secret put ADMIN_TOKEN
+#
+# Read more about configuring your Worker via wrangler.toml at:
 # https://developers.cloudflare.com/workers/wrangler/configuration
