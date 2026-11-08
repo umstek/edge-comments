@@ -29,4 +29,4 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           wranglerVersion: "4.158.0"
-          preCommands: npx wrangler d1 migrations apply edge-comments --remote
+          preCommands: wrangler d1 migrations apply edge-comments --remote
