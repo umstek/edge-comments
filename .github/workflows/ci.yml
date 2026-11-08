@@ -34,3 +34,7 @@ jobs:
         run: cargo test
       - name: WASM build
         run: cargo build --target wasm32-unknown-unknown --release
+      - name: Migration SQL
+        run: |
+          sqlite3 /tmp/edge-comments.db < migrations/0001_comments.sql
+          sqlite3 /tmp/edge-comments.db < migrations/0001_comments.sql

@@ -10,8 +10,15 @@ Thanks for your interest in contributing!
    [wrangler](https://developers.cloudflare.com/workers/wrangler/) v4+.
 3. Run `cargo check` to fetch dependencies and verify the build.
 
-To try the worker locally, copy `wrangler.example.toml` to `wrangler.toml`
-(gitignored) and run `npx wrangler dev`.
+To try the worker locally:
+
+```bash
+cp wrangler.example.toml wrangler.toml   # gitignored
+npx wrangler d1 migrations apply edge-comments --local
+npx wrangler dev --local
+```
+
+Add `.dev.vars` with `ALLOW_INSECURE_WRITES=true` to skip Turnstile locally.
 
 ## Before submitting a PR
 
@@ -22,7 +29,12 @@ cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build --target wasm32-unknown-unknown --release
+sqlite3 /tmp/edge-comments.db < migrations/0001_comments.sql
+sqlite3 /tmp/edge-comments.db < migrations/0001_comments.sql
 ```
+
+The migration is applied twice to prove it is idempotent. If you add a
+migration, add matching coverage instead of editing the existing file.
 
 ## Commit style
 

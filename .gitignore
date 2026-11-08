@@ -4,3 +4,5 @@ wasm-pack.log
 build/
 wrangler.toml
 .cargo-ok
+.dev.vars
+.wrangler/
