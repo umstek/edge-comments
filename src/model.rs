@@ -382,6 +382,10 @@ pub fn validate_content_length(value: Option<&str>) -> Result<(), ApiError> {
     let length = value.parse::<usize>().map_err(|_| {
         ApiError::bad_request("invalid_content_length", "Content-Length must be a number")
     })?;
+    validate_request_body_size(length)
+}
+
+pub fn validate_request_body_size(length: usize) -> Result<(), ApiError> {
     if length > MAX_REQUEST_BYTES {
         return Err(ApiError::new(
             413,
@@ -518,6 +522,13 @@ mod tests {
         assert_eq!(
             validate_content_length(Some("nope")).unwrap_err().status,
             400
+        );
+        assert!(validate_request_body_size(MAX_REQUEST_BYTES).is_ok());
+        assert_eq!(
+            validate_request_body_size(MAX_REQUEST_BYTES + 1)
+                .unwrap_err()
+                .status,
+            413
         );
     }
 

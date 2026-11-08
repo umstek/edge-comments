@@ -144,9 +144,12 @@ async fn handle_create(
         .map_err(ApiError::from)?;
     model::validate_content_length(content_length.as_deref())?;
 
-    let payload: CreateComment = req
-        .json()
+    let raw = req
+        .text()
         .await
+        .map_err(|_| ApiError::bad_request("invalid_json", "Request body must be valid JSON"))?;
+    model::validate_request_body_size(raw.len())?;
+    let payload: CreateComment = serde_json::from_str(&raw)
         .map_err(|_| ApiError::bad_request("invalid_json", "Request body must be valid JSON"))?;
     let body = model::validate_body(&payload.body)?;
     let author = model::validate_author(payload.author)?;
