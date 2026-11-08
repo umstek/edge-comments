@@ -9,6 +9,7 @@ pub const MAX_SITE_LEN: usize = 64;
 pub const MAX_THREAD_LEN: usize = 400;
 pub const MAX_LIMIT: usize = 100;
 pub const DEFAULT_LIMIT: usize = 50;
+pub const MAX_REQUEST_BYTES: usize = 128 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
@@ -48,12 +49,8 @@ impl Cursor {
         let created_at = created_at.parse::<i64>().map_err(|_| {
             ApiError::bad_request("invalid_cursor", "Cursor timestamp is not a number")
         })?;
-        if Uuid::parse_str(id).is_err() {
-            return Err(ApiError::bad_request(
-                "invalid_cursor",
-                "Cursor id is not a UUID",
-            ));
-        }
+        let id = Uuid::parse_str(id)
+            .map_err(|_| ApiError::bad_request("invalid_cursor", "Cursor id is not a UUID"))?;
         Ok(Self {
             created_at,
             id: id.to_string(),
@@ -152,6 +149,7 @@ pub struct ApiError {
     pub status: u16,
     pub code: &'static str,
     pub message: String,
+    pub allow: Option<&'static str>,
 }
 
 impl ApiError {
@@ -160,6 +158,7 @@ impl ApiError {
             status,
             code,
             message: message.into(),
+            allow: None,
         }
     }
 
@@ -175,12 +174,14 @@ impl ApiError {
         Self::new(404, "not_found", message)
     }
 
-    pub fn method_not_allowed(allow: &str) -> Self {
-        Self::new(
+    pub fn method_not_allowed(allow: &'static str) -> Self {
+        let mut error = Self::new(
             405,
             "method_not_allowed",
             format!("Method not allowed. Allowed: {allow}"),
-        )
+        );
+        error.allow = Some(allow);
+        error
     }
 
     pub fn rate_limited(message: impl Into<String>) -> Self {
@@ -227,8 +228,8 @@ pub fn parse_route(path: &str) -> Result<Route, ApiError> {
     let raw = trimmed.strip_prefix('/').unwrap_or(trimmed);
     let parts: Vec<&str> = raw.split('/').collect();
 
-    let item = parts.len() >= 4 && parts[parts.len() - 2] == "comments";
-    let collection = !item && parts.len() >= 3 && parts[parts.len() - 1] == "comments";
+    let collection = parts.len() >= 3 && parts[parts.len() - 1] == "comments";
+    let item = !collection && parts.len() >= 4 && parts[parts.len() - 2] == "comments";
 
     if !item && !collection {
         let mentions_comments = parts.last() == Some(&"comments")
@@ -374,6 +375,23 @@ pub fn validate_author(author: Option<String>) -> Result<String, ApiError> {
     Ok(author.to_string())
 }
 
+pub fn validate_content_length(value: Option<&str>) -> Result<(), ApiError> {
+    let Some(value) = value else {
+        return Ok(());
+    };
+    let length = value.parse::<usize>().map_err(|_| {
+        ApiError::bad_request("invalid_content_length", "Content-Length must be a number")
+    })?;
+    if length > MAX_REQUEST_BYTES {
+        return Err(ApiError::new(
+            413,
+            "payload_too_large",
+            format!("Request body must be at most {MAX_REQUEST_BYTES} bytes"),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -410,6 +428,22 @@ mod tests {
             Route::Item {
                 site: "blog".to_string(),
                 thread: "/my-post".to_string(),
+                id: id.to_string(),
+            }
+        );
+
+        assert_eq!(
+            parse_route("/blog/post/comments/comments").unwrap(),
+            Route::Collection {
+                site: "blog".to_string(),
+                thread: "/post/comments".to_string(),
+            }
+        );
+        assert_eq!(
+            parse_route(&format!("/blog/post/comments/comments/{id}")).unwrap(),
+            Route::Item {
+                site: "blog".to_string(),
+                thread: "/post/comments".to_string(),
                 id: id.to_string(),
             }
         );
@@ -460,8 +494,39 @@ mod tests {
         };
         let encoded = cursor.encode();
         assert_eq!(Cursor::decode(&encoded).unwrap(), cursor);
+
+        let simple = Uuid::parse_str(&cursor.id).unwrap().simple().to_string();
+        assert_eq!(
+            Cursor::decode(&format!("1700000000000:{simple}"))
+                .unwrap()
+                .id,
+            cursor.id
+        );
+
         assert!(Cursor::decode("nope").is_err());
         assert!(Cursor::decode("123:not-a-uuid").is_err());
+    }
+
+    #[test]
+    fn validates_content_length() {
+        assert!(validate_content_length(None).is_ok());
+        assert!(validate_content_length(Some("1000")).is_ok());
+        assert_eq!(
+            validate_content_length(Some("999999")).unwrap_err().status,
+            413
+        );
+        assert_eq!(
+            validate_content_length(Some("nope")).unwrap_err().status,
+            400
+        );
+    }
+
+    #[test]
+    fn method_not_allowed_carries_allow_header() {
+        assert_eq!(
+            ApiError::method_not_allowed("GET, OPTIONS").allow,
+            Some("GET, OPTIONS")
+        );
     }
 
     #[test]

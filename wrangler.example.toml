@@ -2,6 +2,8 @@ name = "edge-comments"
 main = "build/index.js"
 compatibility_date = "2026-07-01"
 workers_dev = true
+# Preserve ALLOWED_ORIGINS / ALLOWED_SITES set in the dashboard on deploy.
+keep_vars = true
 
 [build]
 command = "cargo install -q worker-build --version 0.8.7 --locked && worker-build --release" # required

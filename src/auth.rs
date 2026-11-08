@@ -128,8 +128,14 @@ fn cookie_value<'a>(header: &'a str, name: &str) -> Option<&'a str> {
 }
 
 pub fn client_cookie(id: Uuid, secure: bool) -> String {
-    let secure = if secure { "; Secure" } else { "" };
-    format!("{CLIENT_COOKIE}={id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000{secure}")
+    let (same_site, secure_attr) = if secure {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
+    format!(
+        "{CLIENT_COOKIE}={id}; Path=/; HttpOnly; SameSite={same_site}; Max-Age=31536000{secure_attr}"
+    )
 }
 
 pub fn is_secure(req: &Request) -> bool {
@@ -265,8 +271,11 @@ mod tests {
         let header = client_cookie(id, true);
         assert!(header.contains(&format!("ec_client={id}")));
         assert!(header.contains("HttpOnly"));
+        assert!(header.contains("SameSite=None"));
         assert!(header.contains("Secure"));
-        assert!(!client_cookie(id, false).contains("Secure"));
+        let insecure = client_cookie(id, false);
+        assert!(insecure.contains("SameSite=Lax"));
+        assert!(!insecure.contains("Secure"));
     }
 
     #[test]

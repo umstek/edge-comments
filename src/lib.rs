@@ -138,6 +138,12 @@ async fn handle_create(
     site: &str,
     thread: &str,
 ) -> Result<Response, ApiError> {
+    let content_length = req
+        .headers()
+        .get("Content-Length")
+        .map_err(ApiError::from)?;
+    model::validate_content_length(content_length.as_deref())?;
+
     let payload: CreateComment = req
         .json()
         .await
@@ -175,14 +181,6 @@ async fn handle_create(
     let client_id = existing_client.unwrap_or_else(Uuid::new_v4);
     let now = Date::now().as_millis() as i64;
 
-    let recent =
-        db::count_recent_by_client(&db, &client_id.to_string(), now - 10 * 60 * 1000).await?;
-    if recent >= 5 {
-        return Err(ApiError::rate_limited(
-            "Too many comments; please try again later",
-        ));
-    }
-
     let row = CommentRow {
         id: Uuid::now_v7().to_string(),
         site: site.to_string(),
@@ -195,7 +193,12 @@ async fn handle_create(
         created_at: now,
         updated_at: now,
     };
-    db::insert_comment(&db, &row).await?;
+
+    if !db::insert_comment_with_limit(&db, &row, now - 10 * 60 * 1000, 5).await? {
+        return Err(ApiError::rate_limited(
+            "Too many comments; please try again later",
+        ));
+    }
 
     let mut response = json_response(201, &CommentResponse::from(&row))?;
     if existing_client.is_none() {
@@ -219,11 +222,14 @@ async fn handle_delete(
     id: &str,
 ) -> Result<Response, ApiError> {
     let db = env.d1("DB").map_err(ApiError::from)?;
-    let comment = db::get_comment(&db, site, thread, id)
-        .await?
-        .ok_or_else(|| ApiError::not_found("Comment not found"))?;
-
     let is_admin = auth::is_admin(req, env);
+    let comment = if is_admin {
+        db::get_comment_moderatable(&db, site, thread, id).await?
+    } else {
+        db::get_comment(&db, site, thread, id).await?
+    }
+    .ok_or_else(|| ApiError::not_found("Comment not found"))?;
+
     let is_owner = auth::client_id(req)
         .map(|client| client.to_string() == comment.client_id)
         .unwrap_or(false);
@@ -253,9 +259,16 @@ fn json_response<T: Serialize>(status: u16, value: &T) -> Result<Response, ApiEr
 }
 
 fn error_response(error: ApiError, cors: &CorsPolicy) -> Response {
-    let response = json_response(error.status, &error.envelope()).unwrap_or_else(|_| {
+    let allow = error.allow;
+    let mut response = json_response(error.status, &error.envelope()).unwrap_or_else(|_| {
         Response::error("Internal error", 500).unwrap_or_else(|_| unreachable!())
     });
+    if let Some(allow) = allow {
+        let headers = response.headers().clone();
+        if headers.set("Allow", allow).is_ok() {
+            response = response.with_headers(headers);
+        }
+    }
     add_cors(response, cors)
 }
 

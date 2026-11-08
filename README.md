@@ -106,14 +106,18 @@ curl https://comments.example.com/blog/2026/my-post/comments
   not set, writes are allowed and a warning is logged — configure it in
   production.
 - **Anonymous identity.** The first successful write sets an `ec_client`
-  cookie: a random UUID, `HttpOnly`, `SameSite=Lax`, and `Secure` on HTTPS,
-  valid for one year. It identifies the same commenter for rate limiting and
-  lets them delete their own comments. It is not an authentication credential;
-  anyone with the cookie value can act as that browser, so keep it `HttpOnly`.
+  cookie: a random UUID, `HttpOnly`, valid for one year. On HTTPS it is
+  `SameSite=None; Secure` so cross-site blog→API fetches keep the identity;
+  plain-HTTP local dev falls back to `SameSite=Lax`. It identifies the same
+  commenter for rate limiting and lets them delete their own comments. It is
+  not an authentication credential; anyone with the cookie value can act as
+  that browser, so keep it `HttpOnly`.
 - **Admin moderation.** Set `ADMIN_TOKEN` as a Worker secret. Sending
-  `Authorization: Bearer <token>` allows deleting any comment. If unset, admin
-  deletion is disabled.
+  `Authorization: Bearer <token>` allows deleting any visible or hidden
+  comment. If unset, admin deletion is disabled.
 - **Rate limit.** Five comments per client id per ten minutes; then `429`.
+- **Body limit.** Requests larger than 128 KiB are rejected with `413` before
+  JSON parsing; comment bodies are limited to 10,000 characters.
 - **CORS.** Set `ALLOWED_ORIGINS` to a comma-separated list (for example
   `https://blog.umstek.com,https://app.umstek.com`). The Worker reflects a
   matching `Origin` and enables credentials. If `ALLOWED_ORIGINS` is unset,
@@ -124,7 +128,9 @@ curl https://comments.example.com/blog/2026/my-post/comments
 ## Configuration
 
 `wrangler.example.toml` contains the D1 binding and commented vars. Copy it to
-`wrangler.toml` (gitignored) and fill in the database id.
+`wrangler.toml` (gitignored) and fill in the database id. `keep_vars = true`
+keeps `ALLOWED_ORIGINS` / `ALLOWED_SITES` configured in the Cloudflare dashboard
+from being removed on deploy.
 
 Create the database once:
 

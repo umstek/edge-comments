@@ -18,11 +18,20 @@ fn js_i64(value: i64) -> JsValue {
     JsValue::from_f64(value as f64)
 }
 
-pub async fn insert_comment(db: &D1Database, row: &CommentRow) -> Result<(), ApiError> {
+pub async fn insert_comment_with_limit(
+    db: &D1Database,
+    row: &CommentRow,
+    since_ms: i64,
+    max_comments: i64,
+) -> Result<bool, ApiError> {
     let statement = db.prepare(
         "INSERT INTO comments
            (id, site, thread, parent_id, author, body, status, client_id, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+         WHERE (
+           SELECT COUNT(*) FROM comments
+           WHERE client_id = ?8 AND created_at > ?11
+         ) < ?12",
     );
     let args = [
         js_str(&row.id),
@@ -35,6 +44,8 @@ pub async fn insert_comment(db: &D1Database, row: &CommentRow) -> Result<(), Api
         js_str(&row.client_id),
         js_i64(row.created_at),
         js_i64(row.updated_at),
+        js_i64(since_ms),
+        js_i64(max_comments),
     ];
     let result = statement.bind(&args)?.run().await?;
     if !result.success() {
@@ -44,7 +55,13 @@ pub async fn insert_comment(db: &D1Database, row: &CommentRow) -> Result<(), Api
                 .unwrap_or_else(|| "Insert failed".to_string()),
         ));
     }
-    Ok(())
+    let changed = result
+        .meta()
+        .ok()
+        .flatten()
+        .and_then(|meta| meta.changes)
+        .unwrap_or(0);
+    Ok(changed > 0)
 }
 
 pub async fn get_comment(
@@ -56,6 +73,25 @@ pub async fn get_comment(
     let statement = db.prepare(format!(
         "SELECT {COMMENT_COLUMNS} FROM comments
          WHERE site = ?1 AND thread = ?2 AND id = ?3 AND status = 'visible'"
+    ));
+    let args = [js_str(site), js_str(thread), js_str(id)];
+    statement
+        .bind(&args)?
+        .first::<CommentRow>(None)
+        .await
+        .map_err(ApiError::from)
+}
+
+pub async fn get_comment_moderatable(
+    db: &D1Database,
+    site: &str,
+    thread: &str,
+    id: &str,
+) -> Result<Option<CommentRow>, ApiError> {
+    let statement = db.prepare(format!(
+        "SELECT {COMMENT_COLUMNS} FROM comments
+         WHERE site = ?1 AND thread = ?2 AND id = ?3
+           AND status IN ('visible', 'hidden')"
     ));
     let args = [js_str(site), js_str(thread), js_str(id)];
     statement
@@ -150,7 +186,8 @@ pub async fn soft_delete(
     let statement = db.prepare(
         "UPDATE comments
          SET status = 'deleted', updated_at = ?1
-         WHERE id = ?2 AND site = ?3 AND thread = ?4 AND status = 'visible'",
+         WHERE id = ?2 AND site = ?3 AND thread = ?4
+           AND status IN ('visible', 'hidden')",
     );
     let args = [
         js_i64(Date::now().as_millis() as i64),
@@ -173,16 +210,4 @@ pub async fn soft_delete(
         .and_then(|meta| meta.changes)
         .unwrap_or(0);
     Ok(changed > 0)
-}
-
-pub async fn count_recent_by_client(
-    db: &D1Database,
-    client_id: &str,
-    since_ms: i64,
-) -> Result<i64, ApiError> {
-    let statement =
-        db.prepare("SELECT COUNT(*) AS n FROM comments WHERE client_id = ?1 AND created_at > ?2");
-    let args = [js_str(client_id), js_i64(since_ms)];
-    let count = statement.bind(&args)?.first::<i64>(Some("n")).await?;
-    Ok(count.unwrap_or(0))
 }
