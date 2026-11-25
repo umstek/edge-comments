@@ -1,0 +1,15 @@
+{
+  "name": "edge-comments",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:cf": "node scripts/build-cf-output.mjs",
+    "dev": "node scripts/dev.mjs",
+    "deploy": "cf deploy --prebuilt --no-provision --force",
+    "deploy:dry-run": "node scripts/build-cf-output.mjs --dry-run && cf deploy --prebuilt --dry-run"
+  },
+  "devDependencies": {
+    "cf": "^1.0.0-rc.5"
+  }
+}

@@ -11,6 +11,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CF_SEND_TELEMETRY: "false"
 
 jobs:
   check:
@@ -20,17 +21,35 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Cache worker-build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/worker-build
+          key: ${{ runner.os }}-worker-build-0.8.7
+      - name: Install worker-build
+        run: command -v worker-build || cargo install -q worker-build --version 0.8.7 --locked
       - name: Formatting
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: Tests
         run: cargo test
-      - name: WASM build
-        run: cargo build --target wasm32-unknown-unknown --release
+      - name: WASM build & cf deploy dry-run
+        run: npm run deploy:dry-run
+      - name: Migration SQL
+        run: |
+          for f in migrations/*.sql; do
+            sqlite3 /tmp/edge-comments.db < "$f"
+            sqlite3 /tmp/edge-comments.db < "$f"
+          done

@@ -4,9 +4,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
+  deployments: write
+
+env:
+  CF_SEND_TELEMETRY: "false"
 
 jobs:
   deploy:
@@ -16,15 +21,37 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - run: mv wrangler.example.toml wrangler.toml
-      - name: Fill in KV namespace id
-        run: sed -i 's/00000000000000000000000000000000/${{ secrets.CF_KV_ID }}/g' wrangler.toml
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      - name: Publish
-        uses: cloudflare/wrangler-action@v4.0.0
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache worker-build
+        uses: actions/cache@v4
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          path: ~/.cargo/bin/worker-build
+          key: ${{ runner.os }}-worker-build-0.8.7
+      - name: Install worker-build
+        run: command -v worker-build || cargo install -q worker-build --version 0.8.7 --locked
+      - name: Build Worker (Rust + cf Build Output v1)
+        run: npm run build:cf
+        env:
+          CF_D1_ID: ${{ secrets.CF_D1_ID }}
+          ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+          ALLOWED_SITES: ${{ vars.ALLOWED_SITES }}
+      - name: Apply D1 migrations
+        run: npx cf d1 migrations apply "$CF_D1_ID" --dir ./migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          CF_D1_ID: ${{ secrets.CF_D1_ID }}
+      - name: Deploy to Cloudflare
+        run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
