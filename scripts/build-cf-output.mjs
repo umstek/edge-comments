@@ -2,9 +2,38 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const args = new Set(process.argv.slice(2));
-const skipBuild = args.has("--skip-build");
-const dryRun = args.has("--dry-run");
+const rawArgs = process.argv.slice(2);
+const skipBuild = rawArgs.includes("--skip-build");
+const dryRun = rawArgs.includes("--dry-run");
+
+let mode = "production";
+for (let i = 0; i < rawArgs.length; i++) {
+  if (rawArgs[i] === "--mode") {
+    mode = rawArgs[i + 1] ?? "";
+    i++;
+  } else if (rawArgs[i].startsWith("--mode=")) {
+    mode = rawArgs[i].slice("--mode=".length);
+  }
+}
+
+const MODES = {
+  production: {
+    workerName: "edge-comments",
+    dbName: "edge-comments",
+    domains: ["comments.umstek.com"],
+  },
+  staging: {
+    workerName: "edge-comments-staging",
+    dbName: "edge-comments-staging",
+    domains: ["comments.staging.umstek.com"],
+  },
+};
+
+const modeConfig = MODES[mode];
+if (!modeConfig) {
+  console.error(`Unknown --mode ${JSON.stringify(mode)} (expected "production" or "staging").`);
+  process.exit(1);
+}
 
 const root = path.resolve(import.meta.dirname, "..");
 const buildDir = path.join(root, "build");
@@ -33,7 +62,7 @@ if (!d1Id) {
 const env = {
   DB: {
     type: "d1",
-    name: "edge-comments",
+    name: modeConfig.dbName,
     id: d1Id,
   },
 };
@@ -56,7 +85,7 @@ writeFileSync(
   `${JSON.stringify(
     {
       producer: { name: "edge-comments-build", version: "0.3.0" },
-      buildContext: { isPreview: false },
+      buildContext: { isPreview: false, mode },
     },
     null,
     2,
@@ -67,8 +96,9 @@ writeFileSync(
   path.join(workerDir, "worker.config.json"),
   `${JSON.stringify(
     {
-      name: "edge-comments",
+      name: modeConfig.workerName,
       compatibilityDate: "2026-07-01",
+      domains: modeConfig.domains,
       workersDev: true,
       observability: { enabled: true },
       env,
@@ -88,4 +118,4 @@ writeFileSync(
 
 copyFileSync(mainJs, path.join(bundleDir, "index.js"));
 copyFileSync(mainWasm, path.join(bundleDir, "index_bg.wasm"));
-console.log(`Built cf output at ${path.relative(root, outDir)}`);
+console.log(`Built cf output (${mode}) at ${path.relative(root, outDir)}`);

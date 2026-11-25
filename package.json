@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:cf": "node scripts/build-cf-output.mjs",
+    "build:cf": "node scripts/build-cf-output.mjs --mode production",
+    "build:cf:staging": "node scripts/build-cf-output.mjs --mode staging",
     "dev": "node scripts/dev.mjs",
-    "deploy": "cf deploy --prebuilt --no-provision --force",
-    "deploy:dry-run": "node scripts/build-cf-output.mjs --dry-run && cf deploy --prebuilt --dry-run"
+    "deploy": "cf deploy --prebuilt --mode production --no-provision --force",
+    "deploy:staging": "cf deploy --prebuilt --mode staging --no-provision --force",
+    "deploy:dry-run": "node scripts/build-cf-output.mjs --mode production --dry-run && cf deploy --prebuilt --mode production --dry-run && node scripts/build-cf-output.mjs --mode staging --skip-build --dry-run && cf deploy --prebuilt --mode staging --dry-run"
   },
   "devDependencies": {
     "cf": "^1.0.0-rc.5"

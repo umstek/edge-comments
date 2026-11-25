@@ -1,10 +1,14 @@
-name: Deploy
+name: Deploy Staging
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -14,9 +18,12 @@ env:
   CF_SEND_TELEMETRY: "false"
 
 jobs:
-  deploy:
+  deploy-staging:
     runs-on: ubuntu-latest
-    name: Deploy
+    name: Deploy Staging
+    environment:
+      name: staging
+      url: https://comments.staging.umstek.com
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,20 +45,20 @@ jobs:
           key: ${{ runner.os }}-worker-build-0.8.7
       - name: Install worker-build
         run: command -v worker-build || cargo install -q worker-build --version 0.8.7 --locked
-      - name: Build Worker (Rust + cf Build Output v1)
-        run: npm run build:cf
+      - name: Build Worker (staging)
+        run: npm run build:cf:staging
         env:
-          CF_D1_ID: ${{ secrets.CF_D1_ID }}
+          CF_D1_ID: ${{ secrets.CF_D1_STAGING_ID }}
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
           ALLOWED_SITES: ${{ vars.ALLOWED_SITES }}
-      - name: Apply D1 migrations
+      - name: Apply D1 migrations (staging)
         run: npx cf d1 migrations apply "$CF_D1_ID" --dir ./migrations
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_D1_ID: ${{ secrets.CF_D1_ID }}
-      - name: Deploy to Cloudflare
-        run: npm run deploy
+          CF_D1_ID: ${{ secrets.CF_D1_STAGING_ID }}
+      - name: Deploy to Cloudflare (staging)
+        run: npm run deploy:staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}

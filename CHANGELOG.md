@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — 2026-11-08
+## 0.3.0 — 2026-11-26
 
 ### Breaking
 
@@ -15,7 +15,8 @@
 - `POST`, `GET`, and `DELETE` comment endpoints with UUIDv7 ids, soft deletes,
   replies via `parentId`, cursor pagination, and server timestamps.
 - Turnstile verification for writes, anonymous `ec_client` cookie identity,
-  owner-or-admin deletes, per-client rate limiting, and configurable CORS.
+  owner-or-admin deletes, per-client rate limiting, and configurable CORS
+  (exact origins and subdomain wildcards such as `https://*.umstek.com`).
 - D1 migration `migrations/0001_comments.sql` with thread, parent, and client
   indexes.
 - Unit tests for routing, validation, cursors, cookies, CORS helpers, and
@@ -32,7 +33,9 @@
 - Uses Cloudflare's `cf` CLI and Build Output Specification v1
   (`scripts/build-cf-output.mjs`) with a `DB` D1 binding and pinned
   `worker-build` 0.8.7; local dev runs on Miniflare (`scripts/dev.mjs`).
-- Deploy workflow automatically applies D1 migrations (`cf d1 migrations apply`)
-  before deploying (`cf deploy --prebuilt --no-provision --force`).
-- CI validates WASM build + `cf deploy --prebuilt --dry-run` and applies every
-  migration to SQLite twice to prove idempotence.
+- Split deploys into staging (`comments.staging.umstek.com` on `main`, with
+  separate `edge-comments-staging` D1) and production (`comments.umstek.com` on
+  published GitHub Releases), each automatically applying D1 migrations before
+  deploying.
+- CI validates WASM build + `cf deploy --prebuilt --dry-run` for both
+  environments and applies every migration to SQLite twice to prove idempotence.

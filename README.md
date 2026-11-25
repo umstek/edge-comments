@@ -132,16 +132,24 @@ curl https://comments.example.com/blog/2026/my-post/comments
 and writes Cloudflare Build Output Specification v1 (`.cloudflare/output/v1/`) for
 the `cf` CLI.
 
-Create the D1 database once:
+Create the production and staging D1 databases once:
 
 ```bash
-cf d1 create --name edge-comments
-# store the returned database uuid in the CF_D1_ID GitHub secret
+cf d1 create --name edge-comments          # → CF_D1_ID GitHub secret
+cf d1 create --name edge-comments-staging  # → CF_D1_STAGING_ID GitHub secret
 ```
 
-On every push to `main`, GitHub Actions automatically applies any unapplied files
-in `migrations/` (`cf d1 migrations apply "$CF_D1_ID" --dir ./migrations`) and
-deploys via `cf deploy --prebuilt --no-provision --force`.
+Deploys and migrations run automatically in GitHub Actions:
+
+- **Staging** (`https://comments.staging.umstek.com`, Worker
+  `edge-comments-staging`, D1 `edge-comments-staging`): deployed on every push
+  to `main` by `.github/workflows/deploy-staging.yml`.
+- **Production** (`https://comments.umstek.com`, Worker `edge-comments`, D1
+  `edge-comments`): deployed on published GitHub Releases (or manual dispatch)
+  by `.github/workflows/deploy.yml`.
+
+Both workflows run `cf d1 migrations apply "$CF_D1_ID" --dir ./migrations`
+before deploying via `cf deploy --prebuilt --no-provision --force`.
 
 Worker secrets (set on Cloudflare once; preserved across deploys):
 
