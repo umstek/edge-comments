@@ -33,7 +33,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Cache worker-build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/worker-build
           key: ${{ runner.os }}-worker-build-0.8.7
