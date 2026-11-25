@@ -29,7 +29,10 @@
 
 ### Infrastructure
 
-- Wrangler config uses a `DB` D1 binding and a pinned `worker-build` version.
-- Deploy workflow applies D1 migrations before deploying and uses
-  `wrangler-action` 4.1.3.
-- CI applies the migration to SQLite twice to prove idempotence.
+- Uses Cloudflare's `cf` CLI and Build Output Specification v1
+  (`scripts/build-cf-output.mjs`) with a `DB` D1 binding and pinned
+  `worker-build` 0.8.7; local dev runs on Miniflare (`scripts/dev.mjs`).
+- Deploy workflow automatically applies D1 migrations (`cf d1 migrations apply`)
+  before deploying (`cf deploy --prebuilt --no-provision --force`).
+- CI validates WASM build + `cf deploy --prebuilt --dry-run` and applies every
+  migration to SQLite twice to prove idempotence.

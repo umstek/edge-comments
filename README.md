@@ -127,45 +127,52 @@ curl https://comments.example.com/blog/2026/my-post/comments
 
 ## Configuration
 
-`wrangler.example.toml` contains the D1 binding and commented vars. Copy it to
-`wrangler.toml` (gitignored) and fill in the database id. `keep_vars = true`
-keeps `ALLOWED_ORIGINS` / `ALLOWED_SITES` configured in the Cloudflare dashboard
-from being removed on deploy.
+`scripts/build-cf-output.mjs` compiles the Rust Worker (`worker-build --release`)
+and writes Cloudflare Build Output Specification v1 (`.cloudflare/output/v1/`) for
+the `cf` CLI.
 
-Create the database once:
-
-```bash
-npx wrangler d1 create edge-comments
-# copy the database_id into wrangler.toml or the CF_D1_ID GitHub secret
-npx wrangler d1 migrations apply edge-comments --remote
-```
-
-Worker secrets:
+Create the D1 database once:
 
 ```bash
-npx wrangler secret put TURNSTILE_SECRET
-npx wrangler secret put ADMIN_TOKEN
+cf d1 create --name edge-comments
+# store the returned database uuid in the CF_D1_ID GitHub secret
 ```
 
-Variables (`[vars]` in `wrangler.toml`): `ALLOWED_ORIGINS`, `ALLOWED_SITES`,
-and `ALLOW_INSECURE_WRITES` (local only).
+On every push to `main`, GitHub Actions automatically applies any unapplied files
+in `migrations/` (`cf d1 migrations apply "$CF_D1_ID" --dir ./migrations`) and
+deploys via `cf deploy --prebuilt --no-provision --force`.
+
+Worker secrets (set on Cloudflare once; preserved across deploys):
+
+```bash
+cf workers secrets update TURNSTILE_SECRET --worker edge-comments --type secret_text --text "<turnstile-secret>"
+cf workers secrets update ADMIN_TOKEN --worker edge-comments --type secret_text --text "$(openssl rand -hex 32)"
+```
+
+To create the Turnstile widget via `cf`:
+
+```bash
+cf turnstile widgets create --name edge-comments --widget-mode managed --domains blog.umstek.com
+```
+
+Origin and site allowlists (`ALLOWED_ORIGINS`, `ALLOWED_SITES`) can be set either
+as GitHub Actions repository variables (`vars.*`, injected as text bindings at
+build time) or as Cloudflare Worker secrets via `cf workers secrets update`.
 
 ## Local development
 
 Prerequisites: stable Rust with `wasm32-unknown-unknown` (pinned by
-`rust-toolchain.toml`), Node.js, and Wrangler v4+.
+`rust-toolchain.toml`), `worker-build` 0.8.7, and Node.js 24+.
 
 ```bash
-cp wrangler.example.toml wrangler.toml
-npx wrangler d1 migrations apply edge-comments --local
-npx wrangler dev --local
+npm install
+npm run dev
 ```
 
-For local writes without Turnstile, create `.dev.vars` (gitignored):
-
-```dotenv
-ALLOW_INSECURE_WRITES=true
-```
+`npm run dev` builds the WASM Worker if needed, applies `migrations/*.sql` to a
+local persisted D1 database under `.cloudflare/state/d1`, and starts a local
+Miniflare server on `http://127.0.0.1:8787` with `ALLOW_INSECURE_WRITES=true`
+by default (override via environment variables when testing Turnstile/CORS).
 
 Then exercise the API:
 
@@ -195,7 +202,7 @@ curl http://127.0.0.1:8787/blog/hello/comments
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test
-cargo build --target wasm32-unknown-unknown --release
+npm run deploy:dry-run
 ```
 
 CI also applies the migration to SQLite twice to prove it is idempotent.

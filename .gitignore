@@ -2,7 +2,6 @@
 **/*.rs.bk
 wasm-pack.log
 build/
-wrangler.toml
 .cargo-ok
-.dev.vars
-.wrangler/
+.cloudflare/
+node_modules/
