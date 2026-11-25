@@ -32,7 +32,7 @@ pub fn evaluate_origin(req: &Request, env: &Env) -> Result<CorsPolicy, ApiError>
     Ok(match origin {
         None => CorsPolicy::default(),
         Some(origin) => {
-            if allowed.is_empty() || allowed.iter().any(|entry| entry == &origin) {
+            if allowed.is_empty() || allowed.iter().any(|entry| origin_matches(entry, &origin)) {
                 CorsPolicy {
                     allow_origin: Some(origin),
                     allow_credentials: true,
@@ -73,6 +73,54 @@ fn parse_origin_list(raw: &str) -> Vec<String> {
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .collect()
+}
+
+fn is_plain_origin_url(parsed: &url::Url) -> bool {
+    parsed.username().is_empty()
+        && parsed.password().is_none()
+        && parsed.query().is_none()
+        && parsed.fragment().is_none()
+        && matches!(parsed.path(), "" | "/")
+}
+
+fn origin_matches(entry: &str, origin: &str) -> bool {
+    if entry == origin {
+        return true;
+    }
+    let Some((scheme, rest)) = entry.split_once("://*.") else {
+        return false;
+    };
+    if scheme.is_empty() || rest.is_empty() || rest.contains('*') {
+        return false;
+    }
+    let Ok(origin_url) = url::Url::parse(origin) else {
+        return false;
+    };
+    let Ok(pattern_url) = url::Url::parse(&format!("{scheme}://{rest}")) else {
+        return false;
+    };
+    if !is_plain_origin_url(&origin_url) || !is_plain_origin_url(&pattern_url) {
+        return false;
+    }
+    if origin_url.scheme() != pattern_url.scheme()
+        || origin_url.port_or_known_default() != pattern_url.port_or_known_default()
+    {
+        return false;
+    }
+    let (Some(origin_host), Some(suffix_host)) = (origin_url.host_str(), pattern_url.host_str())
+    else {
+        return false;
+    };
+    if suffix_host.is_empty() || suffix_host.starts_with('.') || suffix_host.ends_with('.') {
+        return false;
+    }
+    let Some(prefix) = origin_host.strip_suffix(suffix_host) else {
+        return false;
+    };
+    let Some(sub) = prefix.strip_suffix('.') else {
+        return false;
+    };
+    !sub.is_empty() && !sub.starts_with('.') && !sub.ends_with('.')
 }
 
 pub fn apply_cors(headers: &Headers, cors: &CorsPolicy, preflight: bool) -> Result<(), ApiError> {
@@ -253,6 +301,52 @@ mod tests {
             vec!["https://a.test".to_string(), "https://b.test".to_string()]
         );
         assert!(parse_origin_list("").is_empty());
+    }
+
+    #[test]
+    fn matches_exact_and_wildcard_origins() {
+        assert!(origin_matches("https://umstek.com", "https://umstek.com"));
+        assert!(origin_matches(
+            "https://*.umstek.com",
+            "https://blog.umstek.com"
+        ));
+        assert!(origin_matches(
+            "https://*.umstek.com",
+            "https://zsib.staging.umstek.com"
+        ));
+        assert!(origin_matches(
+            "https://*.umstek.com:8443",
+            "https://blog.umstek.com:8443"
+        ));
+
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "https://umstek.com"
+        ));
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "https://evil-umstek.com"
+        ));
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "http://blog.umstek.com"
+        ));
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "https://blog.umstek.com:8443"
+        ));
+        assert!(!origin_matches(
+            "https://*.*.umstek.com",
+            "https://a.b.umstek.com"
+        ));
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "https://blog.umstek.com/x"
+        ));
+        assert!(!origin_matches(
+            "https://*.umstek.com",
+            "https://u@blog.umstek.com"
+        ));
     }
 
     #[test]

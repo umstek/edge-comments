@@ -118,10 +118,11 @@ curl https://comments.example.com/blog/2026/my-post/comments
 - **Rate limit.** Five comments per client id per ten minutes; then `429`.
 - **Body limit.** Requests larger than 128 KiB are rejected with `413` before
   JSON parsing; comment bodies are limited to 10,000 characters.
-- **CORS.** Set `ALLOWED_ORIGINS` to a comma-separated list (for example
-  `https://blog.umstek.com,https://app.umstek.com`). The Worker reflects a
-  matching `Origin` and enables credentials. If `ALLOWED_ORIGINS` is unset,
-  reads are open and writes reflect any origin (development only).
+- **CORS.** Set `ALLOWED_ORIGINS` to a comma-separated list of exact origins
+  and/or subdomain wildcards (for example
+  `https://umstek.com,https://*.umstek.com`). The Worker reflects a matching
+  `Origin` and enables credentials. If `ALLOWED_ORIGINS` is unset, reads are
+  open and writes reflect any origin (development only).
 - **Site allowlist.** Optionally set `ALLOWED_SITES` (comma-separated) to reject
   unexpected first path segments in a shared database.
 
