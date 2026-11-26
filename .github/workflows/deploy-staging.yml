@@ -44,7 +44,10 @@ jobs:
           path: ~/.cargo/bin/worker-build
           key: ${{ runner.os }}-worker-build-0.9.0
       - name: Install worker-build
-        run: command -v worker-build || cargo install -q worker-build --version 0.9.0 --locked
+        run: |
+          if ! worker-build --version 2>/dev/null | grep -q '0\.9\.0'; then
+            cargo install -q worker-build --version 0.9.0 --locked --force
+          fi
       - name: Build Worker (staging)
         run: npm run build:cf:staging
         env:
