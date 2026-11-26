@@ -171,7 +171,7 @@ build time) or as Cloudflare Worker secrets via `cf workers secrets update`.
 ## Local development
 
 Prerequisites: stable Rust with `wasm32-unknown-unknown` (pinned by
-`rust-toolchain.toml`), `worker-build` 0.8.7, and Node.js 24+.
+`rust-toolchain.toml`), `worker-build` 0.9.0, and Node.js 26+.
 
 ```bash
 npm install
