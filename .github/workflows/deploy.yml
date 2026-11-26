@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
       - run: npm ci
       - name: Install Rust Stable
@@ -41,9 +41,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/worker-build
-          key: ${{ runner.os }}-worker-build-0.8.7
+          key: ${{ runner.os }}-worker-build-0.9.0
       - name: Install worker-build
-        run: command -v worker-build || cargo install -q worker-build --version 0.8.7 --locked
+        run: command -v worker-build || cargo install -q worker-build --version 0.9.0 --locked
       - name: Build Worker (production)
         run: npm run build:cf
         env:
